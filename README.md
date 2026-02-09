@@ -39,7 +39,4 @@ A comprehensive **Cryptocurrency Recommendation Engine** designed to solve the "
 - **Authentication:** Bcrypt, JSON-based local database
 - **API:** CoinGecko Public API
 
----
-```bash
-git clone [https://github.com/yourusername/crypto-recommender.git](https://github.com/yourusername/crypto-recommender.git)
-cd crypto-recommender
+
