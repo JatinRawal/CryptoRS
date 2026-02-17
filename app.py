@@ -817,7 +817,7 @@ def show_footer():
         including the potential loss of principal. Always conduct your own research and consult with 
         a qualified financial advisor before making investment decisions.
         <br><br>
-        🔐 CryptoAI Recommender | Built with Streamlit | © 2024
+        🔐 CryptoAI Recommender 
     </div>
     """, unsafe_allow_html=True)
 
