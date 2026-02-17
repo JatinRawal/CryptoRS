@@ -14,6 +14,66 @@
         "risk_level": "Moderate",
         "updated_at": "2026-02-07T12:51:22.664943"
       }
+    },
+    "amank": {
+      "password_hash": "$2b$12$/7y9IcVkC3SWey6kGa2lP.VFwWIOaUihZFgnDyWSHVBIJNvZWV7dK",
+      "role": "user",
+      "created_at": "2026-02-09T11:25:02.788688",
+      "profile": {
+        "age": 24,
+        "income": "< $30,000",
+        "monthly_capacity": 100,
+        "experience": "None - Complete Beginner",
+        "goal": "Maximum Returns (High Risk)",
+        "risk_score": 65,
+        "risk_level": "Aggressive",
+        "updated_at": "2026-02-09T11:51:21.475803"
+      }
+    },
+    "Jatin23": {
+      "password_hash": "$2b$12$qF2VeU2PYNXWTc52JT4bze6hXM4/Z2OomxWmSWnrdH1L90Cj7gUdG",
+      "role": "admin",
+      "created_at": "2026-02-12T13:45:47.767590",
+      "profile": {
+        "age": 30,
+        "income": "$30,000 - $50,000",
+        "monthly_capacity": 1000,
+        "experience": "Beginner - Less than 1 year",
+        "goal": "Balanced Growth",
+        "risk_score": 50,
+        "risk_level": "Moderate",
+        "updated_at": "2026-02-12T13:47:13.520938"
+      }
+    },
+    "admin": {
+      "password_hash": "$2b$12$LJlvNKPi/yvMDSwXJFNTWeHSkRMrmi2NTilO6dh3RBSM5UNYJCq..",
+      "role": "master_admin",
+      "created_at": "2026-02-16T11:26:12.060209",
+      "profile": {
+        "age": 24,
+        "income": "< $30,000",
+        "monthly_capacity": 500,
+        "experience": "Advanced - 3+ years",
+        "goal": "Capital Preservation",
+        "risk_score": 50,
+        "risk_level": "Moderate",
+        "updated_at": "2026-02-16T11:28:18.802486"
+      }
+    },
+    "dhruvjayanttillu": {
+      "password_hash": "$2b$12$TLx4iN/fdPRWJBuMgy4fv.V3WhUkQ4vsSKkVUWAcomjkWPifyQoeW",
+      "role": "user",
+      "created_at": "2026-02-17T11:11:46.915488",
+      "profile": {
+        "age": 24,
+        "income": "< $30,000",
+        "monthly_capacity": 5000,
+        "experience": "None - Complete Beginner",
+        "goal": "Maximum Returns (High Risk)",
+        "risk_score": 65,
+        "risk_level": "Aggressive",
+        "updated_at": "2026-02-17T11:13:09.055906"
+      }
     }
   }
 }

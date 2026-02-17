@@ -11,14 +11,18 @@ import pandas as pd
 
 from auth_utils import (
     register_user, login_user, save_user_profile, 
-    get_user_profile, get_all_users, calculate_risk_score, delete_user
+    get_user_profile, get_all_users, calculate_risk_score, delete_user,
+    seed_master_admin, is_master_admin, get_pending_admins, approve_admin, reject_admin
 )
-from model_engine import get_ai_recommendation, get_portfolio_for_chart
+from model_engine import get_ai_recommendation, get_portfolio_for_chart, get_model_metrics, get_loss_history, get_technical_explanation
+
+# Seed the master admin account on app startup
+seed_master_admin()
 
 # Page Configuration
 st.set_page_config(
-    page_title="CryptoAI Recommender",
-    page_icon="🚀",
+    page_title="CrypTop - Cryptocurrency Recommender System",
+    page_icon="🪙",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -41,24 +45,24 @@ st.markdown("""
     
     /* Glassmorphism Cards */
     .glass-card {
-        background: rgba(38, 39, 48, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: rgba(38, 39, 48, 0.35);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         padding: 1.5rem;
         margin: 1rem 0;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     }
     
     .glass-card-glow {
-        background: rgba(38, 39, 48, 0.8);
-        backdrop-filter: blur(10px);
+        background: rgba(38, 39, 48, 0.4);
+        backdrop-filter: blur(12px);
         border-radius: 16px;
-        border: 1px solid rgba(0, 255, 148, 0.3);
+        border: 1px solid rgba(0, 255, 148, 0.2);
         padding: 1.5rem;
         margin: 1rem 0;
-        box-shadow: 0 0 30px rgba(0, 255, 148, 0.15);
+        box-shadow: 0 0 25px rgba(0, 255, 148, 0.1);
     }
     
     /* Neon Button Style */
@@ -80,7 +84,7 @@ st.markdown("""
     
     /* Header Styling */
     .main-header {
-        background: linear-gradient(135deg, #00FF94 0%, #00D4AA 50%, #00B4BE 100%);
+        background: linear-gradient(135deg, #00FF94 0%, #00D4AA 50%, #00B4BE 70%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -123,7 +127,7 @@ st.markdown("""
     
     /* Metric Card */
     .metric-card {
-        background: rgba(38, 39, 48, 0.6);
+        background: rgba(38, 39, 48, 0.35);
         border-radius: 12px;
         padding: 1rem;
         text-align: center;
@@ -200,19 +204,21 @@ if "user_role" not in st.session_state:
     st.session_state.user_role = "user"
 if "user_profile" not in st.session_state:
     st.session_state.user_profile = None
+if "is_master" not in st.session_state:
+    st.session_state.is_master = False
 
 
 def show_login_page():
     """Display the login/signup page."""
-    st.markdown('<h1 class="main-header">🚀 CryptoAI Recommender</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">CryptoAI Recommender</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Intelligent Cryptocurrency Portfolio Recommendations</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown('<div class="glass-card animated">', unsafe_allow_html=True)
+        # st.markdown('<div class="glass-card animated">', unsafe_allow_html=True)
         
-        tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
+        tab1, tab2 = st.tabs(["Login", "Sign Up"])
         
         with tab1:
             st.markdown("### Welcome Back!")
@@ -226,7 +232,11 @@ def show_login_page():
                     st.session_state.username = user_data["username"]
                     st.session_state.user_role = user_data["role"]
                     st.session_state.user_profile = user_data.get("profile")
-                    st.success(message)
+                    st.session_state.is_master = user_data.get("is_master", False)
+                    if user_data["role"] == "pending_admin":
+                        st.warning(message)
+                    else:
+                        st.success(message)
                     st.rerun()
                 else:
                     st.error(message)
@@ -237,8 +247,9 @@ def show_login_page():
             reg_password = st.text_input("Choose Password", type="password", key="reg_pass", placeholder="Min 6 characters")
             reg_password2 = st.text_input("Confirm Password", type="password", key="reg_pass2", placeholder="Confirm password")
             
-            # Admin registration option (hidden by default)
-            is_admin = st.checkbox("Register as Admin", key="is_admin")
+            # Admin registration option
+            is_admin = st.checkbox("Request Admin Access", key="is_admin",
+                                   help="Admin requests require approval from the master admin")
             
             if st.button("Create Account", key="reg_btn", use_container_width=True):
                 if reg_password != reg_password2:
@@ -256,7 +267,7 @@ def show_login_page():
 
 def show_onboarding():
     """Display the onboarding form to solve cold start problem."""
-    st.markdown('<h1 class="main-header">📋 Complete Your Profile</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Complete Your Profile</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Help us understand your investment preferences</p>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -315,7 +326,7 @@ def show_onboarding():
         
         st.markdown("---")
         
-        if st.button("🚀 Calculate My Risk Profile", use_container_width=True):
+        if st.button("Calculate My Risk Profile", use_container_width=True):
             risk_score, risk_level = calculate_risk_score(age, income, experience, goal)
             
             # Save profile
@@ -336,7 +347,7 @@ def show_onboarding():
                 
                 # Show result
                 st.markdown("---")
-                st.markdown("### 🎯 Your Risk Profile")
+                st.markdown("### Your Risk Profile")
                 
                 col_a, col_b = st.columns(2)
                 with col_a:
@@ -356,7 +367,7 @@ def show_onboarding():
                     </div>
                     """, unsafe_allow_html=True)
                 
-                st.success("✅ Profile saved! Click 'Dashboard' in the sidebar to get personalized recommendations.")
+                st.success("Profile saved! Click 'Dashboard' in the sidebar to get personalized recommendations.")
                 st.balloons()
             else:
                 st.error(message)
@@ -368,7 +379,7 @@ def show_user_dashboard():
     """Display the main user dashboard with recommendations."""
     profile = st.session_state.user_profile
     
-    st.markdown('<h1 class="main-header">📊 Your Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Your Dashboard</h1>', unsafe_allow_html=True)
     st.markdown(f'<p class="sub-header">Welcome back, {st.session_state.username}!</p>', unsafe_allow_html=True)
     
     # Profile Summary Cards
@@ -411,7 +422,7 @@ def show_user_dashboard():
     st.markdown("---")
     
     # Recommendation Section
-    st.markdown("### 💰 Generate Portfolio Recommendation")
+    st.markdown("### Generate Portfolio Recommendation")
     
     col1, col2 = st.columns([2, 1])
     
@@ -427,11 +438,11 @@ def show_user_dashboard():
     
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        generate_btn = st.button("🤖 Generate Recommendation", use_container_width=True)
+        generate_btn = st.button("Generate Recommendation", use_container_width=True)
     
     if generate_btn:
-        with st.spinner("🔄 Analyzing market data and generating personalized recommendations..."):
-            portfolio_df, colors, explanation = get_ai_recommendation(
+        with st.spinner("Analyzing market data and generating recommendations..."):
+            portfolio_df, colors, explanation, shap_data = get_ai_recommendation(
                 risk_level=profile.get('risk_level', 'Moderate'),
                 risk_score=profile.get('risk_score', 50),
                 capital=capital
@@ -444,7 +455,7 @@ def show_user_dashboard():
             col_chart, col_table = st.columns([1, 1])
             
             with col_chart:
-                st.markdown("### 📈 Portfolio Allocation")
+                st.markdown("### Portfolio Allocation")
                 
                 labels, values = get_portfolio_for_chart(portfolio_df)
                 
@@ -485,7 +496,7 @@ def show_user_dashboard():
                 st.plotly_chart(fig, use_container_width=True)
             
             with col_table:
-                st.markdown("### 📋 Allocation Details")
+                st.markdown("### Allocation Details")
                 
                 # Style the dataframe
                 st.dataframe(
@@ -504,17 +515,135 @@ def show_user_dashboard():
             
             # Explainable AI Card
             st.markdown("---")
-            st.markdown('<div class="glass-card-glow animated">', unsafe_allow_html=True)
-            st.markdown("### 🧠 Why This Portfolio?")
+            st.markdown("### Why This Portfolio?")
             st.markdown(explanation)
             st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Technical Details + SHAP (Master Admin Only)
+            if st.session_state.get("is_master", False):
+                # SHAP Feature Importance Chart
+                if shap_data and "shap_values" in shap_data:
+                    st.markdown("---")
+                    st.markdown("### Feature Impact Analysis (SHAP)")
+                    st.caption("Shows how each feature contributed to selecting these assets")
+                    
+                    import matplotlib.pyplot as plt
+                    import numpy as np
+                    
+                    sv = shap_data["shap_values"]
+                    feat_names = shap_data["feature_names"]
+                    coin_names = shap_data.get("coin_names", [])
+                    
+                    # Mean absolute SHAP values per feature
+                    mean_shap = np.abs(sv).mean(axis=0)
+                    
+                    fig, ax = plt.subplots(figsize=(8, 3))
+                    fig.patch.set_facecolor('#0e1117')
+                    ax.set_facecolor('#0e1117')
+                    
+                    bars = ax.barh(
+                        feat_names, mean_shap,
+                        color=['#00FF94', '#FFD700', '#FF6B6B', '#4D96FF'][:len(feat_names)],
+                        edgecolor='none', height=0.6
+                    )
+                    ax.set_xlabel('Mean |SHAP Value|', color='white', fontsize=11)
+                    ax.set_title('Feature Importance (Global)', color='white', fontsize=13)
+                    ax.tick_params(colors='white', labelsize=10)
+                    for spine in ax.spines.values():
+                        spine.set_color('#333')
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                    
+                    # Per-coin SHAP breakdown
+                    if len(coin_names) > 0 and sv.shape[0] == len(coin_names):
+                        st.markdown("#### Per-Asset Feature Breakdown")
+                        
+                        fig2, ax2 = plt.subplots(figsize=(10, 4))
+                        fig2.patch.set_facecolor('#0e1117')
+                        ax2.set_facecolor('#0e1117')
+                        
+                        x = np.arange(len(feat_names))
+                        width = 0.8 / len(coin_names)
+                        palette = ['#00FF94', '#FFD700', '#FF6B6B', '#4D96FF', '#9B59B6', '#FF8E53']
+                        
+                        for i, name in enumerate(coin_names):
+                            ax2.bar(
+                                x + i * width, sv[i],
+                                width=width, label=name,
+                                color=palette[i % len(palette)], alpha=0.85
+                            )
+                        
+                        ax2.set_xticks(x + width * len(coin_names) / 2)
+                        ax2.set_xticklabels(feat_names, color='white', fontsize=10)
+                        ax2.set_ylabel('SHAP Value', color='white', fontsize=11)
+                        ax2.set_title('Feature Contribution per Asset', color='white', fontsize=13)
+                        ax2.tick_params(colors='white', labelsize=9)
+                        ax2.legend(fontsize=8, facecolor='#1a1a2e', edgecolor='#333', labelcolor='white')
+                        ax2.axhline(y=0, color='#555', linewidth=0.5)
+                        for spine in ax2.spines.values():
+                            spine.set_color('#333')
+                        plt.tight_layout()
+                        st.pyplot(fig2)
+                        plt.close(fig2)
+
+                tech_explanation = get_technical_explanation()
+                if tech_explanation:
+                    st.markdown("---")
+                    st.markdown('<div class="glass-card-glow animated">', unsafe_allow_html=True)
+                    st.markdown(tech_explanation)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown("---")
+                st.markdown("### Model Performance")
+                
+                metrics = get_model_metrics()
+                loss_history = get_loss_history()
+                
+                if metrics:
+                    col_metrics, col_loss = st.columns([1, 1])
+                    
+                    with col_metrics:
+                        st.markdown("#### Comparative Metrics")
+                        metrics_rows = []
+                        for model_name, m in metrics.items():
+                            metrics_rows.append({
+                                "Model": model_name,
+                                "MSE": str(m.get('MSE', 'N/A')),
+                                "Silhouette": m.get('Silhouette', 0),
+                                "F1-Score": m.get('F1', 0),
+                            })
+                        st.dataframe(
+                            pd.DataFrame(metrics_rows),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+                    
+                    with col_loss:
+                        st.markdown("#### GCN Training Loss")
+                        if loss_history:
+                            fig_loss = go.Figure()
+                            fig_loss.add_trace(go.Scatter(
+                                y=loss_history, mode='lines',
+                                line=dict(color='#00FF94', width=2),
+                                name='Reconstruction Loss'
+                            ))
+                            fig_loss.update_layout(
+                                xaxis_title="Epoch",
+                                yaxis_title="Loss (MSE)",
+                                template="plotly_dark",
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                height=300,
+                                margin=dict(l=40, r=20, t=20, b=40),
+                            )
+                            st.plotly_chart(fig_loss, use_container_width=True)
         else:
             st.error("Unable to generate recommendations. Please try again later.")
 
 
 def show_admin_dashboard():
     """Display admin dashboard with user management."""
-    st.markdown('<h1 class="main-header">👑 Admin Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Admin Dashboard</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">User Management & Analytics</p>', unsafe_allow_html=True)
     
     # Get all users
@@ -562,7 +691,7 @@ def show_admin_dashboard():
         st.markdown("---")
         
         # User table
-        st.markdown("### 👥 Registered Users")
+        st.markdown("### Registered Users")
         
         df = pd.DataFrame(users)
         st.dataframe(
@@ -580,7 +709,7 @@ def show_admin_dashboard():
         
         # Delete User Section
         st.markdown("---")
-        st.markdown("### 🗑️ Delete User")
+        st.markdown("### Delete User")
         
         # Get list of deletable users (exclude current admin)
         deletable_users = [u["Username"] for u in users if u["Username"].lower() != st.session_state.username.lower()]
@@ -597,15 +726,15 @@ def show_admin_dashboard():
             
             with col_btn:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🗑️ Delete", key="delete_btn", type="secondary"):
+                if st.button("Delete", key="delete_btn", type="secondary"):
                     st.session_state.confirm_delete = user_to_delete
             
             # Confirmation dialog
             if "confirm_delete" in st.session_state and st.session_state.confirm_delete:
-                st.warning(f"⚠️ Are you sure you want to delete user **{st.session_state.confirm_delete}**? This action cannot be undone.")
+                st.warning(f"Are you sure you want to delete user **{st.session_state.confirm_delete}**? This action cannot be undone.")
                 col_yes, col_no = st.columns(2)
                 with col_yes:
-                    if st.button("✅ Yes, Delete", use_container_width=True, type="primary"):
+                    if st.button("Yes, Delete", use_container_width=True, type="primary"):
                         success, message = delete_user(st.session_state.confirm_delete, st.session_state.username)
                         if success:
                             st.success(message)
@@ -614,7 +743,7 @@ def show_admin_dashboard():
                         else:
                             st.error(message)
                 with col_no:
-                    if st.button("❌ Cancel", use_container_width=True):
+                    if st.button("Cancel", use_container_width=True):
                         st.session_state.confirm_delete = None
                         st.rerun()
         else:
@@ -622,7 +751,7 @@ def show_admin_dashboard():
         
         # Risk distribution chart
         st.markdown("---")
-        st.markdown("### 📊 Risk Distribution")
+        st.markdown("### Risk Distribution")
         
         risk_counts = {"Conservative": conservative, "Moderate": moderate, "Aggressive": aggressive}
         not_set = sum(1 for u in users if u.get('Risk Level') == 'Not Set')
@@ -644,6 +773,37 @@ def show_admin_dashboard():
         )
         
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Admin Approval Section (Master Admin Only)
+        if st.session_state.is_master:
+            st.markdown("---")
+            st.markdown("### Pending Admin Approvals")
+            
+            pending = get_pending_admins()
+            
+            if pending:
+                for pending_user in pending:
+                    col_name, col_approve, col_reject = st.columns([3, 1, 1])
+                    with col_name:
+                        st.markdown(f"**{pending_user}** — requesting admin access")
+                    with col_approve:
+                        if st.button("Approve", key=f"approve_{pending_user}", type="primary"):
+                            ok, msg = approve_admin(pending_user)
+                            if ok:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                    with col_reject:
+                        if st.button("Reject", key=f"reject_{pending_user}"):
+                            ok, msg = reject_admin(pending_user)
+                            if ok:
+                                st.info(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+            else:
+                st.info("No pending admin requests.")
     else:
         st.info("No users registered yet.")
 
@@ -672,8 +832,13 @@ def main():
     
     # Sidebar Navigation
     with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.username}")
-        st.markdown(f"*Role: {st.session_state.user_role.capitalize()}*")
+        st.markdown(f"### {st.session_state.username}")
+        role_label = st.session_state.user_role.capitalize()
+        if st.session_state.is_master:
+            role_label = "Master Admin"
+        elif st.session_state.user_role == "pending_admin":
+            role_label = "Pending Admin"
+        st.markdown(f"*Role: {role_label}*")
         st.markdown("---")
         
         # Build menu options based on role and profile status
@@ -720,6 +885,7 @@ def main():
         st.session_state.username = None
         st.session_state.user_role = "user"
         st.session_state.user_profile = None
+        st.session_state.is_master = False
         st.rerun()
     
     elif selected == "Complete Profile":

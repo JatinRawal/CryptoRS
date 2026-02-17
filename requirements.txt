@@ -2,9 +2,10 @@ streamlit
 streamlit-option-menu
 pandas
 numpy
-torch
 scikit-learn
 plotly
 bcrypt
 requests
 networkx
+shap
+matplotlib
