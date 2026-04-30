@@ -2,7 +2,6 @@
 Cloud-Based Crypto Recommender System
 Main Streamlit Application with Authentication, Onboarding, and AI Recommendations
 """
-
 import streamlit as st
 from streamlit_option_menu import option_menu
 import plotly.express as px
@@ -204,7 +203,7 @@ if "user_role" not in st.session_state:
     st.session_state.user_role = "user"
 if "user_profile" not in st.session_state:
     st.session_state.user_profile = None
-if "is_master" not in st.session_state:
+if "is_master" not in st.session_state: 
     st.session_state.is_master = False
 
 
@@ -273,7 +272,7 @@ def show_onboarding():
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown('<div class="glass-card-glow animated">', unsafe_allow_html=True)
+        st.markdown('<div>', unsafe_allow_html=True)
         
         st.markdown("### Personal Information")
         
@@ -573,7 +572,6 @@ def show_user_dashboard():
                                 width=width, label=name,
                                 color=palette[i % len(palette)], alpha=0.85
                             )
-                        
                         ax2.set_xticks(x + width * len(coin_names) / 2)
                         ax2.set_xticklabels(feat_names, color='white', fontsize=10)
                         ax2.set_ylabel('SHAP Value', color='white', fontsize=11)

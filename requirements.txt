@@ -9,3 +9,6 @@ requests
 networkx
 shap
 matplotlib
+torch
+google-cloud-firestore
+google-cloud-storage
